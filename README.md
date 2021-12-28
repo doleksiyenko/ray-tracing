@@ -11,3 +11,5 @@ A compute shader is a program that runs on the GPU. The GPU is useful for runnin
 ## HLSL
 
 HLSL (High-level shader language) is a C-like language developed by Microsoft that is used to program shaders in DirectX.
+
+### Following tutorial from : http://blog.three-eyed-games.com/2018/05/03/gpu-ray-tracing-in-unity-part-1/
