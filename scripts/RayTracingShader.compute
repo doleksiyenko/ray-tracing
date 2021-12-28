@@ -1,13 +1,78 @@
-// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
 RWTexture2D<float4> Result;
+float4x4 _CameraToWorld;
+float4x4 _CameraInverseProjection;
+
+// We want to create rays which originate from the camera. The first step is to define a ray.
+struct Ray
+{
+    float3 origin;
+    float3 direction;
+};
+
+// A function which creates and returns are ray.
+Ray CreateRay(float3 origin, float3 direction)
+{
+    Ray ray;
+    ray.origin = origin;
+    ray.direction = direction;
+    return ray;
+}
+    
+Ray CreateCameraRay(float2 uv)
+    {
+    /* 
+    This function will create a ray originating from the camera. 
+    Here, we are converting between different coordinate systems. In the first step, we take the origin
+    of the camera space, and use the matrix transformation to find where this is in the world space.
+    */
+    float3 origin = mul(_CameraToWorld, float4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;   
+    
+    /*
+    The camera projection matrix tells us how 3D points in the space are mapped onto a 2D image, since 3D objects in the camera space need
+    to be mapped onto a 2D viewport for the screen.
+
+    In this case, we have taken the inverse matrix of the projection matrix, so this transformation tells us how to return to the viewing 
+    frustum from our 2D viewport. 
+
+    Useful resources which explain the viewport and camera projection
+    https://docs.microsoft.com/en-us/windows/win32/direct3d9/viewports-and-clipping
+    https://docs.microsoft.com/en-us/windows/win32/direct3d9/projection-transform
+
+    This post explains the role of the 4th vector component in the projection matrix.
+    https://answers.unity.com/questions/1359718/what-do-the-values-in-the-matrix4x4-for-cameraproj.html
+
+    Here, we take the 2D vector uv, which corresponds to a pixel on our RenderTexture, and transform it using the inverse of the projection
+    matrix. This vector is then normalized, which gives a direction. A ray is then created from the origin of the camera in the world space,
+    and projected in the direction of that pixel. This creates the effect of rays coming out of the camera and going in every direction of one
+    of the pixels on our RenderTexture.
+    */
+    float3 direction = mul(_CameraInverseProjection, float4(uv, 0.0f, 1.0f)).xyz;
+    
+    direction = mul(_CameraToWorld, float4(direction, 0.0f)).xyz;
+    direction = normalize(direction);
+    return CreateRay(origin, direction);
+}
 
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
+    // Get the dimensions of the RenderTexture
+    uint width, height;
+    Result.GetDimensions(width, height);
+
+    /*
+    id.xy corresponds to a certain pixel that we are processing on our RenderTexture on which we are applying the shader.
+    This is then scaled to the interval [-1, 1], which puts the coordinates into NDC (normalized device coordinates).
+
+    This site shows the differences between coordinate spaces and explains NDC.
+    https://learnopengl.com/Getting-started/Coordinate-Systems
+    */
+    float2 uv = float2((id.xy + float2(1.0f, 1.0f)) / float2(width, height) - 1.0f);
+
+    Ray ray = CreateCameraRay(uv);
     
-    Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+    // The direction of the ray for each pixel is given some colour. 
+    Result[id.xy] = float4(ray.direction * 0.5f + 0.5f, 1.0f);
 }
