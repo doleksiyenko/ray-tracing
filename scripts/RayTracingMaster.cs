@@ -7,6 +7,7 @@ public class RayTracingMaster : MonoBehaviour
     public ComputeShader RayTracingShader;
     private RenderTexture _target; // a RenderTexture is a texture that Unity creates and updates at runtime.
     private Camera _camera;
+    public Texture SkyboxTexture;
     private void Awake()
     {
         _camera = GetComponent<Camera>();
@@ -66,5 +67,6 @@ public class RayTracingMaster : MonoBehaviour
         // pass relevant matrices into the shader
         RayTracingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);
         RayTracingShader.SetMatrix("_CameraInverseProjection", _camera.projectionMatrix.inverse);
+        RayTracingShader.SetTexture(0, "_SkyboxTexture", SkyboxTexture);
     }
 }
